@@ -20,6 +20,7 @@ import groovy.util.logging.Slf4j
 import io.spring.initializr.InitializrMetadata
 import io.spring.initializr.ProjectGenerator
 import io.spring.initializr.ProjectRequest
+import io.spring.initializr.flux.UploadOperation;
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
@@ -109,6 +110,28 @@ class MainController extends AbstractInitializrController {
 		result
 	}
 
+	@RequestMapping('/flux')
+//	@ResponseBody
+	String flux(ProjectRequest request) {
+		def dir = projectGenerator.generateProjectStructure(request)
+
+//		def download = projectGenerator.createDistributionFile(dir, '.zip')
+//
+//		new AntBuilder().zip(destfile: download) {
+//			zipfileset(dir: dir, includes: '**')
+//		}
+//		log.info("Uploading: ${download} (${download.bytes.length} bytes)")
+//		def result = new ResponseEntity<byte[]>(download.bytes,
+//				['Content-Type': 'application/zip'] as HttpHeaders, HttpStatus.OK)
+
+//		projectGenerator.cleanTempFiles(dir)
+		
+		String fluxUrl = "http://localhost:3000"
+		
+		new UploadOperation(fluxUrl, "defaultuser", null, dir, request.name).run()
+		"redirect:$fluxUrl"
+	}
+	
 	@RequestMapping(value='/starter.tgz', produces='application/x-compress')
 	@ResponseBody
 	ResponseEntity<byte[]> springTgz(ProjectRequest request) {

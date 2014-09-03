@@ -20,7 +20,7 @@
             </div>
         </div>
     </div>
-    <form id="form" class="form-horizontal" action="/starter.zip" method="get" role="form">
+    <form id="form" class="form-horizontal" method="get" role="form">
         <div class="row">
             <div class="col-sm-6">
                 <h3>Project metadata</h3>
@@ -123,8 +123,11 @@
         </div>
         <div class="row">
             <p class="text-center">
-                <button name="generate-project" type="submit" class="btn btn-lg btn-primary" role="button">
+                <button name="action" type="submit" class="btn btn-lg btn-primary" role="button" value="/starter.zip" onclick="javascript: form.action='/starter.zip';">
                     <span class="glyphicon glyphicon-download"></span> Generate Project
+                </button>
+                <button name="action" type="submit" class="btn btn-lg btn-primary" role="button" value="/flux" onclick="javascript: form.action='/flux';">
+                    <span class="glyphicon glyphicon-file"></span> Open Project in Flux
                 </button>
             </p>
         </div>
