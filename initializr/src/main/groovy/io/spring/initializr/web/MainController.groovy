@@ -20,7 +20,7 @@ import groovy.util.logging.Slf4j
 import io.spring.initializr.InitializrMetadata
 import io.spring.initializr.ProjectGenerator
 import io.spring.initializr.ProjectRequest
-import io.spring.initializr.flux.UploadOperation;
+import io.spring.initializr.flux.UploadOperation2
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
@@ -128,7 +128,7 @@ class MainController extends AbstractInitializrController {
 		
 		String fluxUrl = "http://localhost:3000"
 		
-		new UploadOperation(fluxUrl, "defaultuser", null, dir, request.name).run()
+		new UploadOperation2(fluxUrl, "defaultuser", null, dir, request.name).run()
 		"redirect:$fluxUrl"
 	}
 	
