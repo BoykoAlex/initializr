@@ -36,9 +36,10 @@ abstract class AbstractInitializrController {
 	/**
 	 * Render the home page with the specified template.
 	 */
-	protected String renderHome(String templatePath) {
+	protected String renderHome(String templatePath, String code) {
 		def model = [:]
 		metadataProvider.get().properties.each { model[it.key] = it.value }
+		model["defaults"]["code"] = code
 		template templatePath, model
 	}
 

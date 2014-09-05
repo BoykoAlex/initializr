@@ -41,6 +41,7 @@ class ProjectRequest {
 	String language
 	String packageName
 	String javaVersion
+	String code
 
 	def dependencies = []
 	def facets = []

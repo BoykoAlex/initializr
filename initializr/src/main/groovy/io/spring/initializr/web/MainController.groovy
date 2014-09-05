@@ -20,8 +20,10 @@ import groovy.util.logging.Slf4j
 import io.spring.initializr.InitializrMetadata
 import io.spring.initializr.ProjectGenerator
 import io.spring.initializr.ProjectRequest
-import io.spring.initializr.flux.UploadOperation2
+import io.spring.initializr.flux.UploadOperation
 
+import org.apache.commons.io.IOUtils
+import org.json.JSONObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -29,6 +31,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseBody
 
 /**
@@ -46,6 +49,12 @@ class MainController extends AbstractInitializrController {
 
 	@Autowired
 	private ProjectGenerator projectGenerator
+	
+	private static final String FLUX_URL = System.getenv("FLUX_URL") == null ? "https://flux-test.cfapps.io:4443" : System.getenv("FLUX_URL")
+	private static final String GITHUB_CLIENT_ID = System.getenv("GITHUB_CLIENT_ID") == null ? "b99747f561015fb80cbb" : System.getenv("GITHUB_CLIENT_ID")
+	private static final String GITHUB_CLIENT_SECRET = System.getenv("GITHUB_CLIENT_SECRET") == null ? "d4eec354b4492aa6a319b1e66de502468e547f6b" : System.getenv("GITHUB_CLIENT_SECRET")
+
+	private static final String UTF_8 = "UTF-8"
 
 	@ModelAttribute
 	ProjectRequest projectRequest() {
@@ -61,11 +70,16 @@ class MainController extends AbstractInitializrController {
 	}
 
 	@RequestMapping(value = '/', produces = 'text/html')
-	@ResponseBody
 	String home() {
-		renderHome('home.html')
+		"redirect:https://github.com/login/oauth/authorize?client_id=b99747f561015fb80cbb&redirect_uri=http://localhost:8080/home"
 	}
 
+	@RequestMapping(value = '/home', produces = 'text/html', params = [ "code" ])
+	@ResponseBody
+	String homePage(@RequestParam(value = "code") String code) {
+		renderHome('home.html', code)
+	}
+	
 	@RequestMapping('/spring')
 	String spring() {
 		def url = metadataProvider.get().createCliDistributionURl('zip')
@@ -111,25 +125,46 @@ class MainController extends AbstractInitializrController {
 	}
 
 	@RequestMapping('/flux')
-//	@ResponseBody
 	String flux(ProjectRequest request) {
 		def dir = projectGenerator.generateProjectStructure(request)
 
-//		def download = projectGenerator.createDistributionFile(dir, '.zip')
-//
-//		new AntBuilder().zip(destfile: download) {
-//			zipfileset(dir: dir, includes: '**')
-//		}
-//		log.info("Uploading: ${download} (${download.bytes.length} bytes)")
-//		def result = new ResponseEntity<byte[]>(download.bytes,
-//				['Content-Type': 'application/zip'] as HttpHeaders, HttpStatus.OK)
-
-//		projectGenerator.cleanTempFiles(dir)
+		String url = "https://github.com/login/oauth/access_token?client_id=" + GITHUB_CLIENT_ID + "&client_secret=" + GITHUB_CLIENT_SECRET + "&code=" + request.code
+		URLConnection connection = new URL(url).openConnection();
+		connection.setDoOutput(true); // Triggers POST.
+		connection.setRequestProperty("Accept-Charset", UTF_8);
+		connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + UTF_8);
 		
-		String fluxUrl = "http://localhost:3000"
+		String s = IOUtils.toString(connection.getInputStream())
 		
-		new UploadOperation2(fluxUrl, "defaultuser", null, dir, request.name).run()
-		"redirect:$fluxUrl"
+		def matcher = s =~ /.*access_token=(\w+)[^&]*/
+		if (matcher.find()) {
+			String token =  matcher.group(1)
+			String userUrl = "https://api.github.com/user?access_token=" + token
+//			def slurper = new JsonSlurper()
+//			def json = slurper.parse(new URL(userUrl))
+//			println json
+			connection = new URL(userUrl).openConnection()
+			connection.setRequestProperty("Accept-Charset", UTF_8);
+			connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + UTF_8);
+			String responseBody = IOUtils.toString(connection.getInputStream())
+			matcher = responseBody =~ /.*"login":"(\w+)".*/
+			if (matcher.find()) {
+				String username = matcher.group(1)
+				String tmpUrl = FLUX_URL.substring(FLUX_URL.indexOf(":"))
+				String encodedName = encodeURIComponent(request.name)
+				String encodedPackage = encodeURIComponent(request.packageName)
+				String appendUrl = FLUX_URL.substring(FLUX_URL.indexOf(":"))
+				String fluxUrl = FLUX_URL + "/edit/edit.html#flux" + tmpUrl + "/" + encodedName + "/src/main/java/" + encodedPackage + "/Application.java"
+				new UploadOperation(FLUX_URL, username, token, dir, request.name).run()
+				projectGenerator.cleanTempFiles(dir)
+				"redirect:$fluxUrl"
+			} else {
+				throw new RuntimeException("Cannot fetch GitHub credentials :-(")
+			}
+		} else {
+			throw new RuntimeException("Github pass code has expired: " + s)
+		}
+		
 	}
 	
 	@RequestMapping(value='/starter.tgz', produces='application/x-compress')
@@ -150,4 +185,21 @@ class MainController extends AbstractInitializrController {
 		result
 	}
 
+	public static String encodeURIComponent(String s) {
+		String result;
+	
+		try {
+			result = URLEncoder.encode(s, UTF_8)
+					.replaceAll("\\+", "%20")
+					.replaceAll("\\%21", "!")
+					.replaceAll("\\%27", "'")
+					.replaceAll("\\%28", "(")
+					.replaceAll("\\%29", ")")
+					.replaceAll("\\%7E", "~");
+		} catch (UnsupportedEncodingException e) {
+			result = s;
+		}
+	
+		return result;
+	}
 }

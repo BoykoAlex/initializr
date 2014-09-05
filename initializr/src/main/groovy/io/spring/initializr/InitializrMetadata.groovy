@@ -57,6 +57,8 @@ class InitializrMetadata {
 	final List<Language> languages = []
 
 	final List<BootVersion> bootVersions = []
+	
+	String code
 
 	final Defaults defaults = new Defaults()
 
@@ -266,6 +268,7 @@ class InitializrMetadata {
 		String javaVersion
 		String language
 		String bootVersion
+		String code
 
 		/**
 		 * Return the artifactId or the name of the project if none is set.
