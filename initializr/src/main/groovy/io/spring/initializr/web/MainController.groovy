@@ -50,6 +50,7 @@ class MainController extends AbstractInitializrController {
 	@Autowired
 	private ProjectGenerator projectGenerator
 	
+	private static final String INIT_HOME_REDIRECT_URL = System.getenv("INIT_HOME_REDIRECT_URL") == null ? "http://localhost:8080" : System.getenv("INIT_HOME_REDIRECT_URL")
 	private static final String FLUX_URL = System.getenv("FLUX_URL") == null ? "https://flux-test.cfapps.io:4443" : System.getenv("FLUX_URL")
 	private static final String GITHUB_CLIENT_ID = System.getenv("GITHUB_CLIENT_ID") == null ? "b99747f561015fb80cbb" : System.getenv("GITHUB_CLIENT_ID")
 	private static final String GITHUB_CLIENT_SECRET = System.getenv("GITHUB_CLIENT_SECRET") == null ? "d4eec354b4492aa6a319b1e66de502468e547f6b" : System.getenv("GITHUB_CLIENT_SECRET")
@@ -71,7 +72,7 @@ class MainController extends AbstractInitializrController {
 
 	@RequestMapping(value = '/', produces = 'text/html')
 	String home() {
-		"redirect:https://github.com/login/oauth/authorize?client_id=b99747f561015fb80cbb&redirect_uri=http://localhost:8080/home"
+		"redirect:https://github.com/login/oauth/authorize?client_id=b99747f561015fb80cbb&redirect_uri=" + INIT_HOME_REDIRECT_URL
 	}
 
 	@RequestMapping(value = '/home', produces = 'text/html', params = [ "code" ])
