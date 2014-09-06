@@ -4,10 +4,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,17 +20,27 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class UploadOperation implements Runnable {
+public class UploadOperationWithJdtService implements Runnable {
+	
+	private static final String JDT_SERVICE_ID = "org.eclipse.flux.jdt";
 	
 	private static final String GET_RESOURCE_REQUEST = "getResourceRequest";
 	private static final String GET_RESOURCE_RESPONSE = "getResourceResponse";
 	private static final String GET_PROJECT_REQUEST = "getProjectRequest";
 	private static final String GET_PROJECT_RESPONSE = "getProjectResponse";
+	private static final String DISCOVER_SERVICE_REQUEST = "discoverServiceRequest";
+	private static final String DISCOVER_SERVICE_RESPONSE = "discoverServiceResponse";
+	private static final String START_SERVICE_REQUEST = "startServiceRequest";
+	private static final String SERVICE_STATUS_CHANGE = "serviceStatusChange";
+	private static final String SERVICE_REQUIRED_REQUEST = "serviceRequiredRequest";
+	private static final String SERVICE_REQUIRED_RESPONSE = "serviceRequiredResponse";
 	private static final String RESOURCE_STORED = "resourceStored";
 	private static final String RESOURCE_CREATED = "resourceCreated";
 	
+	private static final List<String> statuses = Arrays.asList(new String[] {"unavailable", "available", "starting", "ready"});
 	
 	private static final long TIMEOUT = 5 * 1000;
+	private static final long STANDARD_RESPONSE_WAIT_TIME = 1000;
 	private static final long STANDARD_WAIT_PERIOD = 200;
 	
 	private AtomicLong lastAccessed;
@@ -113,6 +126,34 @@ public class UploadOperation implements Runnable {
 		}
 	};
 	
+	private IMessageHandler keepAliveMessageHanlder = new IMessageHandler() {
+		
+		public void handle(String type, JSONObject message) {
+			try {
+				JSONObject response = new JSONObject();
+				response.put("username", message.getString("username"));
+				response.put("service", message.getString("service"));
+				response.put("requestSenderID", message.getString("requestSenderID"));
+				mc.send(SERVICE_REQUIRED_RESPONSE, response);
+			} catch (JSONException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		public String getMessageType() {
+			return SERVICE_REQUIRED_REQUEST;
+		}
+		
+		public boolean canHandle(String type, JSONObject message) {
+			try {
+				return JDT_SERVICE_ID.equals(message.getString("service"));
+			} catch (JSONException e) {
+				e.printStackTrace();
+				return false;
+			}
+		}
+	};
+	
 	private IMessageHandler resourceStoredHandler = new IMessageHandler() {
 		
 		public void handle(String type, JSONObject message) {
@@ -153,7 +194,7 @@ public class UploadOperation implements Runnable {
 		}
 	};
 	
-	public UploadOperation(String host, String username, String password, File projectDir, String projectName) {
+	public UploadOperationWithJdtService(String host, String username, String password, File projectDir, String projectName) {
 		this.host = host;
 		this.username = username;
 		this.password = password;
@@ -177,6 +218,7 @@ public class UploadOperation implements Runnable {
 		storeStats(projectDir);
 		try {
 			connect();
+			locateService();
 			upload();
 		} finally {
 			disconnect();
@@ -253,7 +295,7 @@ public class UploadOperation implements Runnable {
 		mc = new MessageConnector(host, username, password);
 		while (!mc.isConnected()) {
 			try {
-				Thread.sleep(STANDARD_WAIT_PERIOD);
+				Thread.sleep(500);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -262,7 +304,7 @@ public class UploadOperation implements Runnable {
 		mc.connectToChannel(username);
 		while (!mc.isConnected(username)) {
 			try {
-				Thread.sleep(STANDARD_WAIT_PERIOD);
+				Thread.sleep(100);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -300,15 +342,142 @@ public class UploadOperation implements Runnable {
 				e.printStackTrace();
 			}
 		}
-		
-		mc.removeMessageHandler(projectRequestHandler);
-		mc.removeMessageHandler(resourceRequestHandler);
-		mc.removeMessageHandler(resourceCreatedHandler);
-		mc.removeMessageHandler(resourceStoredHandler);
 	}
 	
 	private void disconnect() {
+		mc.removeMessageHandler(projectRequestHandler);
+		mc.removeMessageHandler(resourceRequestHandler);
+		mc.removeMessageHandler(keepAliveMessageHanlder);
 		mc.disconnect();
 	}
 	
+	private void locateService() {
+		mc.addMessageHandler(keepAliveMessageHanlder);
+		
+		final JSONObject[] statusMessageHolder = new JSONObject[1];
+		statusMessageHolder[0] = null;
+		final AtomicBoolean serviceReady = new AtomicBoolean(false);
+		
+		IMessageHandler discoverServiceHandler = new IMessageHandler() {
+			
+			public void handle(String type, JSONObject message) {
+				try {
+					System.out.println("Discover Response HANDLE !!!!!");
+					String status = message.getString("status");
+					if (statusMessageHolder[0] == null) {
+						statusMessageHolder[0] = message;
+					} else {
+						if (statuses.indexOf(statusMessageHolder[0].getString("status")) < statuses.indexOf(status)) {
+							statusMessageHolder[0] = message;
+						}
+					}
+					if (statuses.indexOf(status) > statuses.indexOf("available")) {
+						serviceReady.set(true);
+					}
+				} catch (JSONException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			public String getMessageType() {
+				return DISCOVER_SERVICE_RESPONSE;
+			}
+			
+			public boolean canHandle(String type, JSONObject message) {
+				System.out.println("Discover Response !!!!!");
+				try {
+					return JDT_SERVICE_ID.equals(message.getString("service"));
+				} catch (JSONException e) {
+					e.printStackTrace();
+					return false;
+				}
+			}
+		};
+		
+		IMessageHandler serviceReadyHandler = new IMessageHandler() {
+			
+			public void handle(String type, JSONObject message) {
+				try {
+					if ("ready".equals(message.getString("status"))) {
+						serviceReady.set(true);
+					}
+				} catch (JSONException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			public String getMessageType() {
+				return SERVICE_STATUS_CHANGE;
+			}
+			
+			public boolean canHandle(String type, JSONObject message) {
+				try {
+					return JDT_SERVICE_ID.equals(message.getString("service"));
+				} catch (JSONException e) {
+					e.printStackTrace();
+					return false;
+				}
+			}
+		};
+		
+		mc.addMessageHandler(discoverServiceHandler);
+		mc.addMessageHandler(serviceReadyHandler);
+		
+		try {
+			JSONObject discoverRequest = new JSONObject();
+			discoverRequest.put("username", username);
+			discoverRequest.put("service", JDT_SERVICE_ID);
+			mc.send(DISCOVER_SERVICE_REQUEST, discoverRequest);
+		
+			for (long time = 0; !serviceReady.get() && time < STANDARD_RESPONSE_WAIT_TIME; time += STANDARD_WAIT_PERIOD) {
+				try {
+					Thread.sleep(STANDARD_WAIT_PERIOD);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			mc.removeMessageHandler(discoverServiceHandler);
+			
+			if (statusMessageHolder[0] == null) {
+				throw new RuntimeException("Flux JDT service cannot be located");
+			}
+			
+			if ("unavailable".equals(statusMessageHolder[0].getString("status"))) {
+				if (statusMessageHolder[0].has("error")) {
+					throw new RuntimeException("There are no available flux JDT services: " + statusMessageHolder[0].getString("error"));
+				} else {
+					throw new RuntimeException("There is no JDT service available. Please try the operation later");
+				}
+			}
+			
+			if (!serviceReady.get()) {
+				if ("available".equals(statusMessageHolder[0].getString("status"))) {
+					JSONObject startRequest = new JSONObject();
+					startRequest.put("username", username);
+					startRequest.put("service", JDT_SERVICE_ID);
+					startRequest.put("socketID", statusMessageHolder[0].getString("responseSenderID"));
+					mc.send(START_SERVICE_REQUEST, startRequest);
+				}
+				
+				for (long time = 0; !serviceReady.get() && time < STANDARD_RESPONSE_WAIT_TIME; time += STANDARD_WAIT_PERIOD) {
+					try {
+						Thread.sleep(STANDARD_WAIT_PERIOD);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			if (!serviceReady.get()) {
+				throw new RuntimeException("Timed out waiting for JDT service");
+			}
+		
+		} catch (JSONException e) {
+			throw new RuntimeException(e.getMessage());
+		} finally {
+			mc.removeMessageHandler(serviceReadyHandler);		
+		}
+	}
+
 }

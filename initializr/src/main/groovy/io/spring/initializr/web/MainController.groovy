@@ -23,7 +23,6 @@ import io.spring.initializr.ProjectRequest
 import io.spring.initializr.flux.UploadOperation
 
 import org.apache.commons.io.IOUtils
-import org.json.JSONObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
