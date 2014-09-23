@@ -123,8 +123,9 @@ public final class MessageConnector {
 									&& answer[0] instanceof JSONObject
 									&& ((JSONObject) answer[0])
 											.getBoolean("connectedToChannel")) {
-								channels.add(channel);
-								notifyChannelConnected(channel);
+								if (channels.add(channel)) {
+									notifyChannelConnected(channel);
+								}
 							}
 						} catch (Exception e) {
 							e.printStackTrace();
@@ -150,8 +151,9 @@ public final class MessageConnector {
 					public void ack(Object... answer) {
 						try {
 							if (answer.length == 1 && answer[0] instanceof JSONObject && ((JSONObject)answer[0]).getBoolean("disconnectedFromChannel")) {
-								notifyChannelDisconnected(channel);
-								channels.remove(channel);
+								if (channels.remove(channel)) {
+									notifyChannelDisconnected(channel);
+								}
 							}
 						}
 						catch (Exception e) {
