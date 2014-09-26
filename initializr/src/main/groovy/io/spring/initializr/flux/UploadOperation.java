@@ -23,6 +23,8 @@ public class UploadOperation implements Runnable {
 	private static final String GET_RESOURCE_RESPONSE = "getResourceResponse";
 	private static final String GET_PROJECT_REQUEST = "getProjectRequest";
 	private static final String GET_PROJECT_RESPONSE = "getProjectResponse";
+	private static final String GET_ALL_PROJECTS_REQUEST = "getProjectsRequest";
+	private static final String GET_ALL_PROJECT_RESPONSE = "getProjectsResponse";
 	private static final String RESOURCE_STORED = "resourceStored";
 	private static final String RESOURCE_CREATED = "resourceCreated";
 	
@@ -177,6 +179,7 @@ public class UploadOperation implements Runnable {
 		storeStats(projectDir);
 		try {
 			connect();
+			validate();
 			upload();
 		} finally {
 			disconnect();
@@ -266,6 +269,71 @@ public class UploadOperation implements Runnable {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+		}
+	}
+	
+	private void validate() {
+		final HashSet<String> projects = new HashSet<String>();
+		final ReentrantLock lock = new ReentrantLock();
+		
+		IMessageHandler projectsResponseHandler = new IMessageHandler() {
+			
+			public void handle(String type, JSONObject message) {
+				try {
+					JSONArray array = message.getJSONArray("projects");
+					if (array != null) {
+						lock.lock();
+						try {
+							for (int i = 0; i < array.length(); i++) {
+								JSONObject obj = array.getJSONObject(i);
+								if (obj != null) {
+									projects.add(obj.getString("name"));
+								}
+							}
+						} finally {
+							lock.unlock();
+						}
+					}
+				} catch (JSONException e) {
+					e.printStackTrace();
+				}
+			}
+			
+			public String getMessageType() {
+				return GET_ALL_PROJECT_RESPONSE;
+			}
+			
+			public boolean canHandle(String type, JSONObject message) {
+				return true;
+			}
+		};
+		
+		mc.addMessageHandler(projectsResponseHandler);
+		
+		try {
+			JSONObject requestProjects = new JSONObject();
+			requestProjects.put("username", username);
+			mc.send(GET_ALL_PROJECTS_REQUEST, requestProjects);
+			
+			for (long counter = 0; counter < TIMEOUT; counter+=STANDARD_WAIT_PERIOD) {
+				try {
+					Thread.sleep(STANDARD_WAIT_PERIOD);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				lock.lock();
+				if (!projects.isEmpty()) {
+					mc.removeMessageHandler(projectsResponseHandler);
+					counter = TIMEOUT;
+					if (projects.contains(projectName)) {
+						throw new DuplicateProjectException("Project with name '"+ projectName + "' already exists.", projectName, projects);
+					}
+				}
+				lock.unlock();
+			}
+			
+		} catch (JSONException e) {
+			e.printStackTrace();
 		}
 	}
 	

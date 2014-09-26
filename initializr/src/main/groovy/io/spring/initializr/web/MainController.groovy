@@ -20,7 +20,10 @@ import groovy.util.logging.Slf4j
 import io.spring.initializr.InitializrMetadata
 import io.spring.initializr.ProjectGenerator
 import io.spring.initializr.ProjectRequest
+import io.spring.initializr.flux.DuplicateProjectException
 import io.spring.initializr.flux.UploadOperation
+
+import javax.servlet.http.HttpServletRequest
 
 import org.apache.commons.io.IOUtils
 import org.springframework.beans.factory.annotation.Autowired
@@ -28,10 +31,13 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ModelAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseBody
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.servlet.ModelAndView
 
 /**
  * The main initializr controller provides access to the configured
@@ -49,7 +55,6 @@ class MainController extends AbstractInitializrController {
 	@Autowired
 	private ProjectGenerator projectGenerator
 	
-	private static final String INIT_HOME_REDIRECT_URL = System.getenv("INIT_HOME_REDIRECT_URL") == null ? "http://localhost:8080/home" : System.getenv("INIT_HOME_REDIRECT_URL")
 	private static final String FLUX_URL = System.getenv("FLUX_URL") == null ? "http://localhost:3000" : System.getenv("FLUX_URL")
 	private static final String GITHUB_CLIENT_ID = System.getenv("GITHUB_CLIENT_ID") == null ? "90e70185cf2f97322261" : System.getenv("GITHUB_CLIENT_ID")
 	private static final String GITHUB_CLIENT_SECRET = System.getenv("GITHUB_CLIENT_SECRET") == null ? "082e048051152139c1c39ae09c1feb7f4e0387cf" : System.getenv("GITHUB_CLIENT_SECRET")
@@ -70,16 +75,11 @@ class MainController extends AbstractInitializrController {
 	}
 
 	@RequestMapping(value = '/', produces = 'text/html')
+	@ResponseBody
 	String home() {
-		"redirect:https://github.com/login/oauth/authorize?client_id=" + GITHUB_CLIENT_ID + "&redirect_uri=" + INIT_HOME_REDIRECT_URL
+		renderHome('home.html')
 	}
 
-	@RequestMapping(value = '/home', produces = 'text/html', params = [ "code" ])
-	@ResponseBody
-	String homePage(@RequestParam(value = "code") String code) {
-		renderHome('home.html', code)
-	}
-	
 	@RequestMapping('/spring')
 	String spring() {
 		def url = metadataProvider.get().createCliDistributionURl('zip')
@@ -123,12 +123,32 @@ class MainController extends AbstractInitializrController {
 		projectGenerator.cleanTempFiles(dir)
 		result
 	}
+	
+	String authenticate(HttpServletRequest httpRequest) {
+		def redirect = httpRequest.getRequestURL().toString()
+		def params = []
+		for (Map.Entry<String, String[]> entry : httpRequest.parameterMap) {
+			def key = entry.key
+			if ("style".equals(entry.key)) {
+				key = "starters"
+			}
+			params << "${key}=${URLEncoder.encode(entry.value.join(','), 'UTF-8')}"
+		}
+		if (!params.empty) {
+			redirect += '?'
+		}
+		redirect += params.join("&")
+		return "redirect:https://github.com/login/oauth/authorize?client_id=" + GITHUB_CLIENT_ID + "&redirect_uri=" + URLEncoder.encode(redirect, 'UTF-8')
+	}
 
 	@RequestMapping('/flux')
-	String flux(ProjectRequest request) {
-		def dir = projectGenerator.generateProjectStructure(request)
+	String flux(ProjectRequest request, @RequestParam(value="code", required=false) String code, HttpServletRequest httpRequest) {
+		def dir = projectGenerator.generateProjectStructure(request)		
+		if(code == null) {
+			authenticate(httpRequest)
+		}
 
-		String url = "https://github.com/login/oauth/access_token?client_id=" + GITHUB_CLIENT_ID + "&client_secret=" + GITHUB_CLIENT_SECRET + "&code=" + request.code
+		String url = "https://github.com/login/oauth/access_token?client_id=" + GITHUB_CLIENT_ID + "&client_secret=" + GITHUB_CLIENT_SECRET + "&code=" + code
 		URLConnection connection = new URL(url).openConnection();
 		connection.setDoOutput(true); // Triggers POST.
 		connection.setRequestProperty("Accept-Charset", UTF_8);
@@ -162,7 +182,7 @@ class MainController extends AbstractInitializrController {
 				throw new RuntimeException("Cannot fetch GitHub credentials :-(")
 			}
 		} else {
-			throw new RuntimeException("Github pass code has expired: " + s)
+			authenticate(httpRequest)
 		}
 		
 	}
@@ -202,4 +222,5 @@ class MainController extends AbstractInitializrController {
 	
 		return result;
 	}
+
 }

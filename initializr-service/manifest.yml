@@ -1,6 +1,6 @@
 ---
 applications:
-- name: start-flux-SpringONE
+- name: start-flux-JavaONE
   memory: 1024M
   instances: 1
   host: start-flux
@@ -8,5 +8,4 @@ applications:
   env:
     FLUX_URL: https://flux.cfapps.io:4443
     GITHUB_CLIENT_ID: b99747f561015fb80cbb
-    GITHUB_CLIENT_SECRET: d4eec354b4492aa6a319b1e66de502468e547f6b
-    INIT_HOME_REDIRECT_URL: http://start-flux.cfapps.io/home
+    GITHUB_CLIENT_SECRET: 6ff7dddca68c5468108bc540559ab9f96bf7095c

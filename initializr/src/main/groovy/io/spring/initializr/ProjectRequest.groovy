@@ -29,7 +29,9 @@ import groovy.util.logging.Slf4j
 class ProjectRequest {
 
 	def style = []
-
+	
+	String starters
+	
 	String name
 	String type
 	String description
@@ -53,6 +55,9 @@ class ProjectRequest {
 		style = style ?: []
 		if (!style.class.isArray() && !(style instanceof Collection)) {
 			style = [style]
+		}
+		if (starters != null && !starters.empty) {
+			starters.split(",").each { style << it }
 		}
 		dependencies = style.collect {
 			def dependency = metadata.getDependency(it)
