@@ -26,6 +26,7 @@ import io.spring.initializr.flux.UploadOperation
 import javax.servlet.http.HttpServletRequest
 
 import org.apache.commons.io.IOUtils
+import org.eclipse.flux.client.config.RabbitMQFluxConfig;
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -56,6 +57,8 @@ class MainController extends AbstractInitializrController {
 	private ProjectGenerator projectGenerator
 	
 	private static final String FLUX_URL = System.getenv("FLUX_URL") == null ? "http://localhost:3000" : System.getenv("FLUX_URL")
+	private static final String FLUX_RABBIT_URL = RabbitMQFluxConfig.rabbitUrl();
+	
 	private static final String GITHUB_CLIENT_ID = System.getenv("GITHUB_CLIENT_ID") == null ? "90e70185cf2f97322261" : System.getenv("GITHUB_CLIENT_ID")
 	private static final String GITHUB_CLIENT_SECRET = System.getenv("GITHUB_CLIENT_SECRET") == null ? "082e048051152139c1c39ae09c1feb7f4e0387cf" : System.getenv("GITHUB_CLIENT_SECRET")
 

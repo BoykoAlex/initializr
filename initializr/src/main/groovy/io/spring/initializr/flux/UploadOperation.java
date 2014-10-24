@@ -13,6 +13,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
+import org.eclipse.flux.client.IMessageHandler;
+import org.eclipse.flux.client.MessageConnector;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -63,7 +65,7 @@ public class UploadOperation implements Runnable {
 				JSONObject response = new JSONObject(message, COPY_PROPS);
 				response.put("files", files);
 				mc.send(GET_PROJECT_RESPONSE, response);
-			} catch (JSONException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -97,11 +99,7 @@ public class UploadOperation implements Runnable {
 					}
 					mc.send(GET_RESOURCE_RESPONSE, resourceResponse);
 				}
-			} catch (JSONException e) {
-				e.printStackTrace();
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -181,6 +179,8 @@ public class UploadOperation implements Runnable {
 			connect();
 			validate();
 			upload();
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			disconnect();
 		}
@@ -252,8 +252,8 @@ public class UploadOperation implements Runnable {
 		}
 	}
 	
-	private void connect() {
-		mc = new MessageConnector(host, username, password);
+	private void connect() throws Exception {
+		mc = FluxConnectionFactory.create(host, username, password);
 		while (!mc.isConnected()) {
 			try {
 				Thread.sleep(STANDARD_WAIT_PERIOD);
@@ -332,7 +332,7 @@ public class UploadOperation implements Runnable {
 				lock.unlock();
 			}
 			
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -357,7 +357,7 @@ public class UploadOperation implements Runnable {
 			message.put("project", projectName);
 			mc.send("projectConnected", message);
 			lastAccessed.set(System.currentTimeMillis());
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		

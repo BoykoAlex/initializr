@@ -16,6 +16,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
+import org.eclipse.flux.client.IMessageHandler;
+import org.eclipse.flux.client.MessageConnector;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -74,7 +76,7 @@ public class UploadOperationWithJdtService implements Runnable {
 				JSONObject response = new JSONObject(message, COPY_PROPS);
 				response.put("files", files);
 				mc.send(GET_PROJECT_RESPONSE, response);
-			} catch (JSONException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -108,11 +110,7 @@ public class UploadOperationWithJdtService implements Runnable {
 					}
 					mc.send(GET_RESOURCE_RESPONSE, resourceResponse);
 				}
-			} catch (JSONException e) {
-				e.printStackTrace();
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -135,7 +133,7 @@ public class UploadOperationWithJdtService implements Runnable {
 				response.put("service", message.getString("service"));
 				response.put("requestSenderID", message.getString("requestSenderID"));
 				mc.send(SERVICE_REQUIRED_RESPONSE, response);
-			} catch (JSONException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
@@ -220,6 +218,8 @@ public class UploadOperationWithJdtService implements Runnable {
 			connect();
 			locateService();
 			upload();
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			disconnect();
 		}
@@ -291,8 +291,8 @@ public class UploadOperationWithJdtService implements Runnable {
 		}
 	}
 	
-	private void connect() {
-		mc = new MessageConnector(host, username, password);
+	private void connect() throws Exception {
+		mc = FluxConnectionFactory.create(host, username, password);
 		while (!mc.isConnected()) {
 			try {
 				Thread.sleep(500);
@@ -331,7 +331,7 @@ public class UploadOperationWithJdtService implements Runnable {
 			message.put("project", projectName);
 			mc.send("projectConnected", message);
 			lastAccessed.set(System.currentTimeMillis());
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		
@@ -473,7 +473,7 @@ public class UploadOperationWithJdtService implements Runnable {
 				throw new RuntimeException("Timed out waiting for JDT service");
 			}
 		
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage());
 		} finally {
 			mc.removeMessageHandler(serviceReadyHandler);		
