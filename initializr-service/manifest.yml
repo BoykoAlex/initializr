@@ -5,6 +5,8 @@ applications:
   instances: 1
   host: start-flux
   path: start.jar
+  services:
+  - flux-rabbit-prod
   env:
     FLUX_URL: https://flux.cfapps.io:4443
     GITHUB_CLIENT_ID: b99747f561015fb80cbb
