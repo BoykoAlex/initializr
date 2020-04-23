@@ -125,6 +125,11 @@ public abstract class ProjectGenerationController<R extends ProjectRequest> {
 		return createResponseEntity(gradleBuild, "application/octet-stream", "build.gradle");
 	}
 
+	@RequestMapping("/generate")
+	public void generate(R request) {
+		this.projectGenerationInvoker.invokeProjectStructureGeneration(request);
+	}
+
 	@RequestMapping("/starter.zip")
 	@ResponseBody
 	public ResponseEntity<byte[]> springZip(R request) throws IOException {

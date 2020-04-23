@@ -17,6 +17,7 @@
 package io.spring.initializr.web.autoconfigure;
 
 import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import javax.cache.configuration.MutableConfiguration;
 import javax.cache.expiry.CreatedExpiryPolicy;
@@ -79,8 +80,14 @@ public class InitializrAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public ProjectDirectoryFactory projectDirectoryFactory() {
-		return (description) -> Files.createTempDirectory("project-");
+	public ProjectDirectoryFactory projectDirectoryFactory(InitializrProperties properties) {
+		String projectLocationContainer = properties.getProjectLocationContainer();
+		if (projectLocationContainer == null || projectLocationContainer.isEmpty()) {
+			return (description) -> Files.createTempDirectory("project-");
+		}
+		else {
+			return (description) -> Files.createDirectories(Paths.get(projectLocationContainer));
+		}
 	}
 
 	@Bean

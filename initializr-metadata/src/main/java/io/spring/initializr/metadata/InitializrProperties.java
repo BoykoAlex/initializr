@@ -104,6 +104,17 @@ public class InitializrProperties extends InitializrConfiguration {
 	@JsonIgnore
 	private final SimpleElement packageName = new SimpleElement(null);
 
+	@JsonIgnore
+	private String projectLocationContainer = null;
+
+	public void setProjectLocationContainer(String projectLocationContainer) {
+		this.projectLocationContainer = projectLocationContainer;
+	}
+
+	public String getProjectLocationContainer() {
+		return this.projectLocationContainer;
+	}
+
 	public List<DependencyGroup> getDependencies() {
 		return this.dependencies;
 	}
