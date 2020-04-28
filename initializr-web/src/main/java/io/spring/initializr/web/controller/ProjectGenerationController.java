@@ -30,6 +30,15 @@ import java.util.function.Function;
 
 import javax.servlet.http.HttpServletResponse;
 
+import io.spring.initializr.generator.buildsystem.BuildSystem;
+import io.spring.initializr.generator.buildsystem.maven.MavenBuildSystem;
+import io.spring.initializr.generator.project.ProjectDescription;
+import io.spring.initializr.metadata.InitializrMetadata;
+import io.spring.initializr.metadata.InitializrMetadataProvider;
+import io.spring.initializr.web.project.InvalidProjectRequestException;
+import io.spring.initializr.web.project.ProjectGenerationInvoker;
+import io.spring.initializr.web.project.ProjectGenerationResult;
+import io.spring.initializr.web.project.ProjectRequest;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -40,6 +49,7 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -50,16 +60,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import io.spring.initializr.generator.buildsystem.BuildSystem;
-import io.spring.initializr.generator.buildsystem.maven.MavenBuildSystem;
-import io.spring.initializr.generator.project.ProjectDescription;
-import io.spring.initializr.metadata.InitializrMetadata;
-import io.spring.initializr.metadata.InitializrMetadataProvider;
-import io.spring.initializr.web.project.InvalidProjectRequestException;
-import io.spring.initializr.web.project.ProjectGenerationInvoker;
-import io.spring.initializr.web.project.ProjectGenerationResult;
-import io.spring.initializr.web.project.ProjectRequest;
 
 /**
  * Base {@link Controller} that provides endpoints for project generation.
